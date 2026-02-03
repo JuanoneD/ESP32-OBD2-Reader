@@ -30,7 +30,7 @@ void OBDHandle::notifyCallback(BLERemoteCharacteristic* pBLERemoteCharacteristic
     
     if(lastResponse.indexOf('>') != -1) {
         MessageHandle::processAndShowMessage(lastResponse);
-        debugPrint("Message Receive: " + lastResponse);
+        debugPrint("Message Received: " + lastResponse);
         lastResponse = "";
     }
 }
@@ -99,23 +99,9 @@ bool OBDHandle::connect(const char* address) {
     return false;
 }
 
-bool OBDHandle::checkECU() {
+void OBDHandle::checkECU() {
     debugPrint("Checking ECU status...");
     sendCommand("0100\r");
-
-    unsigned long startWait = millis();
-    String response = "";
-    while (lastResponse.indexOf("41 00 ") == -1 && (millis() - startWait < 1000)) {
-        response = lastResponse;
-    }
-
-    if (response.indexOf("41 00") != -1) {
-        debugPrint("ECU is ON");
-        return true; // ECU ON
-    }
-    debugPrint("ECU is OFF or not responding");
-    delay(1000);
-    return false; // ECU OFF
 }
 
 void OBDHandle::setServiceUUID(const char* uuid) {

@@ -38,6 +38,12 @@ void MessageHandle::processTemperatureMessage(String message) {
     }
 }
 
+void MessageHandle::processCheckECUMessage(String message) {
+    if(ecu_state == nullptr) return;
+    *ecu_state = ECU_STATUS::AWAKE;
+    debugPrint("ECU is AWAKE.");
+}
+
 void MessageHandle::processAndShowMessage(String message) {
     
     if(message.indexOf("NO DATA") != -1 || message.indexOf("ERROR") != -1) {
@@ -59,11 +65,14 @@ void MessageHandle::processAndShowMessage(String message) {
     
     switch (mux) {
         case RPM_MUX:
-        processRPMMessage(clearMessage);
-        break;
+            processRPMMessage(clearMessage);
+            break;
         case TEMP_MUX:
-        processTemperatureMessage(clearMessage);
-        break;
+            processTemperatureMessage(clearMessage);
+            break;
+        case CHECK_ECU_MUX:
+            processCheckECUMessage(clearMessage);
+            break;
         default:
         break;
     }

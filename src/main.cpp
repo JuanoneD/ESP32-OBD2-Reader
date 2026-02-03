@@ -63,8 +63,11 @@ void loop() {
     lcd.print("Connecting OBD...");
     
     if(OBDHandle::connect(targetAddress.c_str()))
-        status = CONNECTION_STATUS::CONNECTED;
-
+    {
+      status = CONNECTION_STATUS::CONNECTED;
+      lcd.clear();
+    }
+    
     return;
   }
 
@@ -74,15 +77,13 @@ void loop() {
     lcd.print("Connect with OBD");
     lcd.setCursor(0, 1);
     lcd.print(" Wait ECU...   ");
-    delay(200);
-
-    if(!OBDHandle::checkECU()) 
-      return;
-
-    ecu_state = ECU_STATUS::AWAKE;
-    Serial.println("ECU Started.");
+    while (ecu_state == ECU_STATUS::SLEEP) {
+      delay(500);
+      OBDHandle::checkECU();
+    
+    }
     lcd.setCursor(0, 1);
-    lcd.print(" ECU Started!");
+    lcd.print("   ECU Awake!   ");
     delay(1000);
     lcd.clear();
   }

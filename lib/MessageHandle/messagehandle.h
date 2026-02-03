@@ -15,6 +15,7 @@ private:
 
     static void processRPMMessage(String message);
     static void processTemperatureMessage(String message);
+    static void processCheckECUMessage(String message);
     static void debugPrint(String message);
     
 public:
