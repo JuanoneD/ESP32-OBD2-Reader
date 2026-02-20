@@ -8,14 +8,19 @@
 #include "../lib/datadefinition.h"
 #include <obdhandle.h>
 #include <messagehandle.h>
+#include <htmlinterface.h>
+#include <preferenceshandle.h>
 
 // sensor address
 static String targetAddress = "66:1e:32:7a:35:0e";
 
 // UUIDs
 static String serviceUUID = "0000fff0-0000-1000-8000-00805f9b34fb";
-static String charUUID_TX = "0000fff2-0000-1000-8000-00805f9b34fb"; // Escrita
-static String charUUID_RX = "0000fff1-0000-1000-8000-00805f9b34fb"; // Leitura
+static String charUUID_TX = "0000fff2-0000-1000-8000-00805f9b34fb"; // Write
+static String charUUID_RX = "0000fff1-0000-1000-8000-00805f9b34fb"; // Read
+
+
+HTMLInterface htmlInterface;
 
 // LCD
 LiquidCrystal_I2C lcd(0x27, 16, 2);
@@ -27,9 +32,21 @@ int messagesFromRPM = 0;
 CONNECTION_STATUS status = CONNECTION_STATUS::DISCONNECTED;
 ECU_STATUS ecu_state = ECU_STATUS::SLEEP;
 
+void TaskWiFi(void * pvParameters) {
+  Serial.print("Run Wifi on Core: ");
+    Serial.println(xPortGetCoreID());
+    
+    htmlInterface.begin(); 
+
+    for(;;) {
+        htmlInterface.handleClient();
+        vTaskDelay(10 / portTICK_PERIOD_MS); // Pequena pausa para o watchdog
+    }
+}
+
 void setup() {
     Serial.begin(115200);
-    Wire.setClock(400000); // 400kHz I2C
+    Wire.setClock(100000); // 400kHz I2C
     lcd.init();
     delay(1000);
     lcd.backlight();
@@ -38,6 +55,16 @@ void setup() {
     Serial.println("--- System Started ---");
     lcd.setCursor(0, 0);
     lcd.print("-System Started-");
+
+    xTaskCreatePinnedToCore(
+        TaskWiFi,      
+        "WiFi_Task",   
+        10000,         
+        NULL,          
+        1,             
+        NULL,          
+        0              
+    );
  
     // Enable debug for OBDHandle
     OBDHandle::setDebugSerial(&Serial);
@@ -86,14 +113,16 @@ void loop() {
     delay(1000);
     lcd.clear();
   }
-
+  
   if(messagesFromRPM >= 20) {
     messagesFromRPM = 0;
     OBDHandle::sendCommand("0105"); // Request Engine Coolant Temperature
   }else{
     OBDHandle::sendCommand("010C"); // Request RPM
-    messagesFromRPM++;
+    delay(200);
+    OBDHandle::sendCommand("0104"); // Request Engine Load
   }
+  messagesFromRPM++;
   delay(300);
 }
 

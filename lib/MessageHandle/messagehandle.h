@@ -4,6 +4,7 @@
 #include <Arduino.h>
 #include <LiquidCrystal_I2C.h>
 #include "../datadefinition.h"
+#include <preferenceshandle.h>
 
 class MessageHandle {
 private:
@@ -12,10 +13,13 @@ private:
     static bool debugEnabled;
     static HardwareSerial* debugSerial;
     static ECU_STATUS *ecu_state;
+    static unsigned long lastEngineLoadRequestTime;
+    static int lastRPMValue;
 
     static void processRPMMessage(String message);
     static void processTemperatureMessage(String message);
     static void processCheckECUMessage(String message);
+    static void processEngineLoadMessage(String message);
     static void debugPrint(String message);
     
 public:

@@ -34,7 +34,6 @@ static void sendCommand(String command);
 static void checkECU();
 static void enableDebug(bool enable);
 static void setDebugSerial(HardwareSerial* serial);
-
 };
 
 #endif

@@ -5,6 +5,8 @@ LiquidCrystal_I2C* MessageHandle::lcd = nullptr;
 bool MessageHandle::debugEnabled = false;
 HardwareSerial* MessageHandle::debugSerial = nullptr;
 ECU_STATUS* MessageHandle::ecu_state = nullptr;
+unsigned long MessageHandle::lastEngineLoadRequestTime = 0;
+int MessageHandle::lastRPMValue = 0;
 
 void MessageHandle::processRPMMessage(String message) {
     int indexRPM = message.indexOf("410C");
@@ -17,6 +19,7 @@ void MessageHandle::processRPMMessage(String message) {
         lcd->print("RPM: ");
         if(rpm < 1000) lcd->print(" ");
         lcd->print(rpm);
+        lastRPMValue = rpm;
     }
 }
 
@@ -73,8 +76,36 @@ void MessageHandle::processAndShowMessage(String message) {
         case CHECK_ECU_MUX:
             processCheckECUMessage(clearMessage);
             break;
+        case ENGINE_LOAD_MUX:
+            processEngineLoadMessage(clearMessage);
+            break;
         default:
         break;
+    }
+}
+
+void MessageHandle::processEngineLoadMessage(String message) {
+    int index = message.indexOf("4104");
+    unsigned long currentTime = millis();
+
+    if(lastEngineLoadRequestTime == 0) {
+        lastEngineLoadRequestTime = currentTime;
+        return;
+    }
+    
+    if (index != -1 && message.length() >= index + 6) {
+        String hexVal = message.substring(index + 4, index + 6);
+        int loadDecimal = strtol(hexVal.c_str(), NULL, 16);
+        int loadFinal = (loadDecimal * 100) / 255;
+        float deltaTime = (currentTime - lastEngineLoadRequestTime)/1000.0; 
+
+        float fuelConsumption = (lastRPMValue * loadFinal * (PreferencesHandle::getInstance().getConsumptionFactor())) * deltaTime;
+        PreferencesHandle::getInstance().setFuel(PreferencesHandle::getInstance().getFuel() - fuelConsumption);
+        lastEngineLoadRequestTime = currentTime;
+        debugPrint(">>> Engine Load: " + String(loadFinal) + " %\n");
+        lcd->setCursor(13, 0);
+        lcd->print(int(PreferencesHandle::getInstance().getFuel() * 100 / PreferencesHandle::getInstance().getTankCapacity()));
+        lcd->print("%");
     }
 }
 
