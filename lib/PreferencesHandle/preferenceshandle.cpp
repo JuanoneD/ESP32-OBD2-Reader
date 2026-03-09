@@ -53,3 +53,23 @@ void PreferencesHandle::savePreferences() {
     prefs.putFloat("factor", consumptionFactor);
     prefs.end();
 }
+
+void PreferencesHandle::setDistanceTraveled(float distance) {
+    if(distance == this->distanceTraveled) return;
+    this->distanceTraveled = distance;
+    savePreferences();
+}
+
+float PreferencesHandle::getDistanceTraveled() {
+    return distanceTraveled;
+}
+
+float PreferencesHandle::getTripFuelUsed() {
+    return tripFuelUsed;
+}
+
+void PreferencesHandle::setTripFuelUsed(float fuel) {
+    if(fuel == this->tripFuelUsed) return;
+    this->tripFuelUsed = fuel;
+    savePreferences();
+}

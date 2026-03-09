@@ -7,6 +7,8 @@ HardwareSerial* MessageHandle::debugSerial = nullptr;
 ECU_STATUS* MessageHandle::ecu_state = nullptr;
 unsigned long MessageHandle::lastEngineLoadRequestTime = 0;
 int MessageHandle::lastRPMValue = 0;
+unsigned long MessageHandle::lastSpeedRequestTime = 0;
+double MessageHandle::distanceAccumulator = 0;
 
 void MessageHandle::processRPMMessage(String message) {
     int indexRPM = message.indexOf("410C");
@@ -79,8 +81,38 @@ void MessageHandle::processAndShowMessage(String message) {
         case ENGINE_LOAD_MUX:
             processEngineLoadMessage(clearMessage);
             break;
+        case SPEED_MUX:
+            processSpeedMessage(clearMessage);
+            break;
         default:
         break;
+    }
+}
+
+void MessageHandle::processSpeedMessage(String message) {
+    int index = message.indexOf("410D");
+    unsigned long currentTime = millis();
+    
+    if (index != -1 && message.length() >= index + 6) {
+        int speedKmh = strtol(message.substring(index + 4, index + 6).c_str(), NULL, 16);
+
+        lcd->setCursor(10, 1);
+        if(speedKmh < 100) lcd->print(" ");
+        if(speedKmh < 10) lcd->print(" ");
+        lcd->print(speedKmh);
+        lcd->print("kmh");
+        debugPrint(">>> Speed: " + String(speedKmh) + " km/h\n");
+
+        if (lastSpeedRequestTime > 0) {
+            double deltaTime = (currentTime - lastSpeedRequestTime) / 1000.0;
+            double metersTraveled = (speedKmh / 3.6) * deltaTime;
+            
+            distanceAccumulator += metersTraveled;
+            
+            float totalKm = PreferencesHandle::getInstance().getDistanceTraveled() + (metersTraveled / 1000.0);
+            PreferencesHandle::getInstance().setDistanceTraveled(totalKm);
+        }
+        lastSpeedRequestTime = currentTime;
     }
 }
 
@@ -101,6 +133,10 @@ void MessageHandle::processEngineLoadMessage(String message) {
 
         float fuelConsumption = (lastRPMValue * loadFinal * (PreferencesHandle::getInstance().getConsumptionFactor())) * deltaTime;
         PreferencesHandle::getInstance().setFuel(PreferencesHandle::getInstance().getFuel() - fuelConsumption);
+
+        float tripfuelConsumed = PreferencesHandle::getInstance().getTripFuelUsed() + fuelConsumption;
+        PreferencesHandle::getInstance().setTripFuelUsed(tripfuelConsumed);
+
         lastEngineLoadRequestTime = currentTime;
         debugPrint(">>> Engine Load: " + String(loadFinal) + " %\n");
         lcd->setCursor(13, 0);
