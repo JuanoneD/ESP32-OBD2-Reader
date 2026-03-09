@@ -8,7 +8,6 @@ ECU_STATUS* MessageHandle::ecu_state = nullptr;
 unsigned long MessageHandle::lastEngineLoadRequestTime = 0;
 int MessageHandle::lastRPMValue = 0;
 unsigned long MessageHandle::lastSpeedRequestTime = 0;
-double MessageHandle::distanceAccumulator = 0;
 
 void MessageHandle::processRPMMessage(String message) {
     int indexRPM = message.indexOf("410C");
@@ -34,11 +33,12 @@ void MessageHandle::processTemperatureMessage(String message) {
         int tempFinal = tempDecimal - 40;
         
         // Exibe no LCD
-        lcd->setCursor(0, 1);
-        lcd->print("TEMP: ");
+        lcd->setCursor(11, 1);
+        if(tempFinal < 100) lcd->print(" ");
+        if(tempFinal < 10) lcd->print(" ");
         lcd->print(tempFinal);
         lcd->write(223); // Caractere de grau (°)
-        lcd->print("C   ");
+        lcd->print("C");
         debugPrint(">>> Temp: " + String(tempFinal) + " C\n");
     }
 }
@@ -96,18 +96,16 @@ void MessageHandle::processSpeedMessage(String message) {
     if (index != -1 && message.length() >= index + 6) {
         int speedKmh = strtol(message.substring(index + 4, index + 6).c_str(), NULL, 16);
 
-        lcd->setCursor(10, 1);
+        lcd->setCursor(0, 1);
         if(speedKmh < 100) lcd->print(" ");
         if(speedKmh < 10) lcd->print(" ");
         lcd->print(speedKmh);
-        lcd->print("kmh");
+        lcd->print("km/h");
         debugPrint(">>> Speed: " + String(speedKmh) + " km/h\n");
 
         if (lastSpeedRequestTime > 0) {
             double deltaTime = (currentTime - lastSpeedRequestTime) / 1000.0;
             double metersTraveled = (speedKmh / 3.6) * deltaTime;
-            
-            distanceAccumulator += metersTraveled;
             
             float totalKm = PreferencesHandle::getInstance().getDistanceTraveled() + (metersTraveled / 1000.0);
             PreferencesHandle::getInstance().setDistanceTraveled(totalKm);

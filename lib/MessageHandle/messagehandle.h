@@ -16,7 +16,6 @@ private:
     static unsigned long lastEngineLoadRequestTime;
     static int lastRPMValue;
     static unsigned long lastSpeedRequestTime;
-    static double distanceAccumulator;
 
     static void processRPMMessage(String message);
     static void processTemperatureMessage(String message);
