@@ -99,6 +99,7 @@ void loop() {
   }
 
   if(ecu_state == ECU_STATUS::SLEEP) {
+    lcd.clear();
     Serial.println("Connect with OBD, Wait ECU.");
     lcd.setCursor(0, 0);
     lcd.print("Connect with OBD");
