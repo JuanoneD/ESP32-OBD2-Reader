@@ -115,9 +115,9 @@ void loop() {
   }
 
   if(messagesFromRPM % 4 == 0) {
-    OBDHandle::sendCommand("010C"); // RPM
-  } else if(messagesFromRPM % 4 == 1) {
     OBDHandle::sendCommand("010D"); // Speed - mais frequente
+  } else if(messagesFromRPM % 4 == 1) {
+    OBDHandle::sendCommand("010C"); // RPM
   } else if(messagesFromRPM % 4 == 2) {
     OBDHandle::sendCommand("0104"); // Engine Load
   } else {
