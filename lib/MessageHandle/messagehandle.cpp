@@ -95,7 +95,7 @@ void MessageHandle::processSpeedMessage(String message) {
     
     if (index != -1 && message.length() >= index + 6) {
         int speedKmh = strtol(message.substring(index + 4, index + 6).c_str(), NULL, 16);
-        speedKmh = speedKmh * 1.06;
+        speedKmh = speedKmh * 1.07;
 
         lcd->setCursor(0, 1);
         if(speedKmh < 100) lcd->print(" ");
