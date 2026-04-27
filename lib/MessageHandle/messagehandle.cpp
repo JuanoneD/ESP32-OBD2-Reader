@@ -8,6 +8,7 @@ ECU_STATUS* MessageHandle::ecu_state = nullptr;
 unsigned long MessageHandle::lastEngineLoadRequestTime = 0;
 int MessageHandle::lastRPMValue = 0;
 unsigned long MessageHandle::lastSpeedRequestTime = 0;
+float MessageHandle::lastLFTValue = 0;
 
 void MessageHandle::processRPMMessage(String message) {
     int indexRPM = message.indexOf("410C");
@@ -47,6 +48,9 @@ void MessageHandle::processCheckECUMessage(String message) {
     if(ecu_state == nullptr) return;
     *ecu_state = ECU_STATUS::AWAKE;
     debugPrint("ECU is AWAKE.");
+    lastEngineLoadRequestTime = 0;
+    lastRPMValue = 0;
+    lastSpeedRequestTime = 0;
 }
 
 void MessageHandle::processAndShowMessage(String message) {
@@ -84,6 +88,9 @@ void MessageHandle::processAndShowMessage(String message) {
         case SPEED_MUX:
             processSpeedMessage(clearMessage);
             break;
+        case LONG_TERM_FUEL_TRIM_MUX:
+            processLongTermFuelTrimMessage(clearMessage);
+            break;
         default:
         break;
     }
@@ -95,14 +102,13 @@ void MessageHandle::processSpeedMessage(String message) {
     
     if (index != -1 && message.length() >= index + 6) {
         int speedKmh = strtol(message.substring(index + 4, index + 6).c_str(), NULL, 16);
-        speedKmh = speedKmh * 1.07;
 
         lcd->setCursor(0, 1);
         if(speedKmh < 100) lcd->print(" ");
         if(speedKmh < 10) lcd->print(" ");
         lcd->print(speedKmh);
         lcd->print("km/h");
-        debugPrint(">>> Speed: " + String(speedKmh) + " km/h\n");
+        debugPrint(">>> Speed: " + String(speedKmh * 1.07) + " km/h\n");
 
         if (lastSpeedRequestTime > 0) {
             double deltaTime = (currentTime - lastSpeedRequestTime) / 1000.0;
@@ -112,6 +118,19 @@ void MessageHandle::processSpeedMessage(String message) {
             PreferencesHandle::getInstance().setDistanceTraveled(totalKm);
         }
         lastSpeedRequestTime = currentTime;
+    }
+}
+
+void MessageHandle::processLongTermFuelTrimMessage(String message) {
+    int index = message.indexOf("4107");
+    if (index != -1 && message.length() >= index + 6) {
+        String hexVal = message.substring(index + 4, index + 6);
+        int trimDecimal = strtol(hexVal.c_str(), NULL, 16);
+        
+        float trimFinal = (trimDecimal * (100.0 / 128.0)) - 100.0;
+        
+        debugPrint(">>> Long Term Fuel Trim: " + String(trimFinal) + " %\n");
+        lastLFTValue = trimFinal;
     }
 }
 
@@ -129,8 +148,9 @@ void MessageHandle::processEngineLoadMessage(String message) {
         int loadDecimal = strtol(hexVal.c_str(), NULL, 16);
         int loadFinal = (loadDecimal * 100) / 255;
         float deltaTime = (currentTime - lastEngineLoadRequestTime)/1000.0; 
+        float lftModifier = 1 + (lastLFTValue / 100.0);
 
-        float fuelConsumption = (lastRPMValue * loadFinal * (PreferencesHandle::getInstance().getConsumptionFactor())) * deltaTime;
+        float fuelConsumption = (lastRPMValue * loadFinal * PreferencesHandle::getInstance().getConsumptionFactor() * lftModifier) * deltaTime;
         PreferencesHandle::getInstance().setFuel(PreferencesHandle::getInstance().getFuel() - fuelConsumption);
 
         float tripfuelConsumed = PreferencesHandle::getInstance().getTripFuelUsed() + fuelConsumption;

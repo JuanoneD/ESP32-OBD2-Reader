@@ -16,12 +16,14 @@ private:
     static unsigned long lastEngineLoadRequestTime;
     static int lastRPMValue;
     static unsigned long lastSpeedRequestTime;
+    static float lastLFTValue;
 
     static void processRPMMessage(String message);
     static void processTemperatureMessage(String message);
     static void processCheckECUMessage(String message);
     static void processEngineLoadMessage(String message);
     static void processSpeedMessage(String message);
+    static void processLongTermFuelTrimMessage(String message);
     static void debugPrint(String message);
     
 public:

@@ -115,13 +115,13 @@ void loop() {
   }
 
   if(messagesFromRPM % 4 == 0) {
-    OBDHandle::sendCommand("010D"); // Speed - mais frequente
+    OBDHandle::sendCommand("010D"); // Speed
   } else if(messagesFromRPM % 4 == 1) {
     OBDHandle::sendCommand("010C"); // RPM
   } else if(messagesFromRPM % 4 == 2) {
-    OBDHandle::sendCommand("0104"); // Engine Load
+    OBDHandle::sendCommand("0107"); // Long Term Fuel Trim
   } else {
-    OBDHandle::sendCommand("010D"); // Speed novamente
+    OBDHandle::sendCommand("0104"); // Engine Load
   }
 
   // Temperatura menos frequente
