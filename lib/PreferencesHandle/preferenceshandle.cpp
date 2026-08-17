@@ -3,8 +3,12 @@
 PreferencesHandle *PreferencesHandle::instance;
 
 PreferencesHandle& PreferencesHandle::getInstance() {
-    if(!instance)
+    if(!instance){
         instance = new PreferencesHandle();
+        instance->setVelocity(0);
+        instance->setRPM(0);
+        instance->setTemperature(0);
+    }
     return *instance;
 }
 
@@ -45,6 +49,10 @@ PreferencesHandle::PreferencesHandle() {
     consumptionFactor = prefs.getFloat("factor", 0.00000000815);
     distanceTraveled = prefs.getFloat("distance", 0.0);
     tripFuelUsed = prefs.getFloat("tripFuel", 0.0);
+
+    kalmanInitialErrorEstimate = prefs.getFloat("kalmanErrEst", 10.0);
+    kalmanProcessNoise = prefs.getFloat("kalmanQ", 0.5);
+
     prefs.end();
 }
 
@@ -55,6 +63,10 @@ void PreferencesHandle::savePreferences() {
     prefs.putFloat("factor", consumptionFactor);
     prefs.putFloat("distance", distanceTraveled);
     prefs.putFloat("tripFuel", tripFuelUsed);
+
+    prefs.putFloat("kalmanErrEst", kalmanInitialErrorEstimate);
+    prefs.putFloat("kalmanQ", kalmanProcessNoise);
+
     prefs.end();
 }
 
@@ -75,5 +87,49 @@ float PreferencesHandle::getTripFuelUsed() {
 void PreferencesHandle::setTripFuelUsed(float fuel) {
     if(fuel == this->tripFuelUsed) return;
     this->tripFuelUsed = fuel;
+    savePreferences();
+}
+
+void PreferencesHandle::setVelocity(float velocity) {
+    this->velocity = velocity;
+}
+
+float PreferencesHandle::getVelocity() {
+    return velocity;
+}
+
+void PreferencesHandle::setRPM(int rpm) {
+    this->RPM = rpm;
+}
+
+int PreferencesHandle::getRPM() {
+    return RPM;
+}
+
+void PreferencesHandle::setTemperature(int temperature) {
+    this->temperature = temperature;
+}
+
+int PreferencesHandle::getTemperature() {
+    return temperature;
+}
+
+float PreferencesHandle::getKalmanInitialErrorEstimate() {
+    return kalmanInitialErrorEstimate;
+}
+
+void PreferencesHandle::setKalmanInitialErrorEstimate(float value) {
+    if (value == this->kalmanInitialErrorEstimate) return;
+    this->kalmanInitialErrorEstimate = value;
+    savePreferences();
+}
+
+float PreferencesHandle::getKalmanProcessNoise() {
+    return kalmanProcessNoise;
+}
+
+void PreferencesHandle::setKalmanProcessNoise(float value) {
+    if (value == this->kalmanProcessNoise) return;
+    this->kalmanProcessNoise = value;
     savePreferences();
 }

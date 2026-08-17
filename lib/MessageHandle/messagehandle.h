@@ -5,17 +5,14 @@
 #include <LiquidCrystal_I2C.h>
 #include "../datadefinition.h"
 #include <preferenceshandle.h>
+#include <lcdhandler.h>
 
 class MessageHandle {
 private:
-    static LiquidCrystal_I2C *lcd;
-    
     static bool debugEnabled;
     static HardwareSerial* debugSerial;
     static ECU_STATUS *ecu_state;
     static unsigned long lastEngineLoadRequestTime;
-    static int lastRPMValue;
-    static unsigned long lastSpeedRequestTime;
     static float lastLFTValue;
 
     static void processRPMMessage(String message);
@@ -28,7 +25,6 @@ private:
     
 public:
     static void setECUState(ECU_STATUS* state);
-    static void setLCD(LiquidCrystal_I2C *lcdInstance);
     static void processAndShowMessage(String message);
     static void enableDebug(bool enable);
     static void setDebugSerial(HardwareSerial* serial);

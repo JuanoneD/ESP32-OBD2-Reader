@@ -10,6 +10,10 @@
 #include <messagehandle.h>
 #include <htmlinterface.h>
 #include <preferenceshandle.h>
+#include <lcdhandler.h>
+#include <accelerometerhandle.h>
+#include <gpshandle.h>
+#include <kalmanvelocity.h>
 
 // sensor address
 static String targetAddress = "66:1e:32:7a:35:0e";
@@ -22,11 +26,14 @@ static String charUUID_RX = "0000fff1-0000-1000-8000-00805f9b34fb"; // Read
 
 HTMLInterface htmlInterface;
 
-// LCD
-LiquidCrystal_I2C lcd(0x27, 16, 2);
 
 // cycle count
-int messagesFromRPM = 0;
+unsigned long previousMillisforMessages = 0;
+// unsigned long previousMillisforMediumDelayMessages = 0; // OBD speed (010D) disabled - GPS/Accel handle velocity now
+unsigned long previousMillisforLongDelayMessages = 0;
+unsigned long previousMillisforAccelerometerUpdates = 0;
+
+int messagesCount = 0;
 
 // Var
 CONNECTION_STATUS status = CONNECTION_STATUS::DISCONNECTED;
@@ -45,16 +52,21 @@ void TaskWiFi(void * pvParameters) {
 }
 
 void setup() {
-    Serial.begin(115200);
-    Wire.setClock(100000); // 400kHz I2C
-    lcd.init();
-    delay(1000);
-    lcd.backlight();
+    Serial.begin(SERIAL_BAUD_RATE);
+    Wire.begin(I2C_SDA_PIN, I2C_SCL_PIN); // LCD I2C bus (pins 21, 22)
+    Wire.setClock(100000); // 100kHz I2C
+    LCDHandler::begin();
+    LCDHandler::displayedStartedMessage();
 
-    lcd.setCursor(0, 0);
-    Serial.println("--- System Started ---");
-    lcd.setCursor(0, 0);
-    lcd.print("-System Started-");
+    KalmanVelocity::setDebugSerial(&Serial);
+    KalmanVelocity::enableDebug(true);
+    KalmanVelocity::begin();
+
+    //AccelerometerHandle::setDebugSerial(&Serial);
+    AccelerometerHandle::begin();
+    GPSHandle::setDebugSerial(&Serial);
+    GPSHandle::enableDebug(true);
+    GPSHandle::begin();
 
     xTaskCreatePinnedToCore(
         TaskWiFi,      
@@ -67,8 +79,8 @@ void setup() {
     );
  
     // Enable debug for OBDHandle
-    OBDHandle::setDebugSerial(&Serial);
-    //OBDHandle::enableDebug(true);
+    //OBDHandle::setDebugSerial(&Serial);
+    OBDHandle::enableDebug(true);
 
     OBDHandle::setServiceUUID(serviceUUID.c_str());
     OBDHandle::setCharUUID_TX(charUUID_TX.c_str());
@@ -78,57 +90,72 @@ void setup() {
     //MessageHandle::enableDebug(true);
     MessageHandle::setDebugSerial(&Serial);
 
-    MessageHandle::setLCD(&lcd);
     MessageHandle::setECUState(&ecu_state);
 }
 
 void loop() {
+  OBDHandle::update();
+  GPSHandle::update();
+
   if(status == CONNECTION_STATUS::DISCONNECTED)
   {
     Serial.println("Trying to connect with OBD...");
-    lcd.setCursor(0, 0);
-    lcd.print("Connecting OBD...");
-    
+    LCDHandler::displayedTryingToConnectOBD();
+
     if(OBDHandle::connect(targetAddress.c_str()))
     {
       status = CONNECTION_STATUS::CONNECTED;
+      ecu_state = ECU_STATUS::SLEEP;
     }
     
-    lcd.clear();
-    return;
+    LCDHandler::clearDisplay();
+    return; // Skip the rest of the loop until connected
   }
 
-  if(ecu_state == ECU_STATUS::SLEEP) {
-    lcd.clear();
+  if(ecu_state == ECU_STATUS::SLEEP)
+  {
+    LCDHandler::clearDisplay();
     Serial.println("Connect with OBD, Wait ECU.");
-    lcd.setCursor(0, 0);
-    lcd.print("Connect with OBD");
-    lcd.setCursor(0, 1);
-    lcd.print(" Wait ECU...   ");
-    while (ecu_state == ECU_STATUS::SLEEP) {
+    LCDHandler::displayedWaitECU();
+    while(ecu_state == ECU_STATUS::SLEEP) {
       OBDHandle::checkECU();
+      delay(1000);
     }
-    lcd.setCursor(0, 1);
-    lcd.print("   ECU Awake!   ");
+    LCDHandler::displayedECUAwake();
     delay(1000);
-    lcd.clear();
+    LCDHandler::clearDisplay();
   }
 
-  if(messagesFromRPM % 4 == 0) {
-    OBDHandle::sendCommand("010D"); // Speed
-  } else if(messagesFromRPM % 4 == 1) {
-    OBDHandle::sendCommand("010C"); // RPM
-  } else if(messagesFromRPM % 4 == 2) {
-    OBDHandle::sendCommand("0107"); // Long Term Fuel Trim
-  } else {
-    OBDHandle::sendCommand("0104"); // Engine Load
+  unsigned long currentMillis = millis();
+  float deltaTimeForMessages = (currentMillis - previousMillisforMessages);
+  // float deltaTimeForMediumDelayMessages = (currentMillis - previousMillisforMediumDelayMessages); // OBD speed disabled
+  float deltaTimeForLongDelayMessages = (currentMillis - previousMillisforLongDelayMessages);
+  float deltaTimeForAccelerometerUpdates = (currentMillis - previousMillisforAccelerometerUpdates);
+
+  if(deltaTimeForMessages > DEFAULT_MESSAGE_INTERVAL_MS) {
+    messagesCount++;
+    if(messagesCount == 1) {
+      OBDHandle::addCommandToQueue("010C"); // RPM
+    } else if(messagesCount == 2) {
+      OBDHandle::addCommandToQueue("0107"); // Long Term Fuel Trim
+    } else {
+      OBDHandle::addCommandToQueue("0104"); // Engine Load
+      messagesCount = 0; // Reset the message count after sending Engine Load
+    }
+    previousMillisforMessages = currentMillis;
+  }
+  // else if(deltaTimeForMediumDelayMessages > MEDIUM_DELAY_MESSAGE_INTERVAL_MS) {
+  //   OBDHandle::addCommandToQueue("010D"); // Speed - disabled, GPS/Accel handle velocity via Kalman
+  //   previousMillisforMediumDelayMessages = currentMillis;
+  // }
+  else if(deltaTimeForLongDelayMessages > LONG_DELAY_MESSAGE_INTERVAL_MS) {
+    OBDHandle::addCommandToQueue("0105"); // Temperature
+    previousMillisforLongDelayMessages = currentMillis;
+  }
+  else if(deltaTimeForAccelerometerUpdates > ACCELEROMETER_UPDATE_INTERVAL_MS) {
+    AccelerometerHandle::updateCurrentVelocity();
+    previousMillisforAccelerometerUpdates = currentMillis;
   }
 
-  // Temperatura menos frequente
-  if(messagesFromRPM % 30 == 0) {
-    messagesFromRPM = 0;
-    OBDHandle::sendCommand("0105"); // Temperature
-  }
-
-  messagesFromRPM++;
+  LCDHandler::update();
 }

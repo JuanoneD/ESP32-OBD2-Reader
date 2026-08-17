@@ -17,6 +17,18 @@ public:
     void setDistanceTraveled(float distance);
     float getTripFuelUsed();
     void setTripFuelUsed(float fuel);
+    void setVelocity(float velocity);
+    float getVelocity();
+    void setRPM(int rpm);
+    int getRPM();
+    void setTemperature(int temperature);
+    int getTemperature();
+
+    // Kalman filter tuning (persisted so it survives reboot)
+    float getKalmanInitialErrorEstimate();
+    void setKalmanInitialErrorEstimate(float value);
+    float getKalmanProcessNoise();
+    void setKalmanProcessNoise(float value);
 
 private:
     static PreferencesHandle *instance;
@@ -28,6 +40,13 @@ private:
     float consumptionFactor;
     float distanceTraveled;
     float tripFuelUsed;
+    float velocity;
+    int RPM;
+    int temperature;
+
+    float kalmanInitialErrorEstimate;
+    float kalmanProcessNoise;
+
     void savePreferences();
 };
 
